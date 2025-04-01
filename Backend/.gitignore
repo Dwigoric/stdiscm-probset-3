@@ -1,5 +1,7 @@
 ### Manually Added ###
 .idea/discord.xml
+upload_videos
+download_videos
 ######################
 
 .gradle
