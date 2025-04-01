@@ -6,47 +6,55 @@ import java.util.Scanner;
 
 /**
  * Producer is responsible for uploading files to the consumer. It reads
- * video files from the local system, and sens them to the consumer over
- * a network socket
+ * video files from the local system and sends them to the consumer over
+ * a network socket.
  */
 public class Producer {
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.print("Enter number of producer threads (p): ");
-        int numProducers = scanner.nextInt();
+        int numProducers = ProducerConfig.NUM_THREADS;
 
-        File folder = new File("videos/");
+        // Define the folder where video files are stored
+        File folder = new File(Config.UPLOAD_FOLDER);
         File[] videoFiles = folder.listFiles();
 
         if (videoFiles == null || videoFiles.length == 0) {
-            System.out.println("⚠️ No video files found in 'videos/' folder.");
+            System.out.println("No video files found in " + Config.UPLOAD_FOLDER + " folder.");
             return;
         }
 
+        // Start sending files to the consumer
         for (int i = 0; i < Math.min(numProducers, videoFiles.length); i++) {
             File videoFile = videoFiles[i];
-            new Thread(() -> sendVideo(videoFile)).start();
+            new Thread(() -> sendVideoToConsumer(videoFile)).start();
         }
     }
 
-    private static void sendVideo(File videoFile) {
-        try (Socket socket = new Socket(Config.SERVER_IP, Config.SERVER_PORT);
+    /**
+     * Sends the video file to the consumer over a socket connection.
+     *
+     * @param videoFile The video file to send.
+     */
+    private static void sendVideoToConsumer(File videoFile) {
+        try (Socket socket = new Socket(ProducerConfig.SERVER_IP, ProducerConfig.SERVER_PORT);
              OutputStream out = socket.getOutputStream();
              FileInputStream fileInput = new FileInputStream(videoFile)) {
 
             byte[] buffer = new byte[4096];
             int bytesRead;
 
+            // Send the filename first
             out.write((videoFile.getName() + "\n").getBytes());
 
+            // Send the actual file content
             while ((bytesRead = fileInput.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
             }
 
-            System.out.println("✅ Uploaded: " + videoFile.getName());
+            System.out.println("Uploaded: " + videoFile.getName());
 
         } catch (IOException e) {
-            System.err.println("❌ Upload error: " + videoFile.getName());
+            System.err.println("Error while uploading: " + videoFile.getName());
+            e.printStackTrace();
         }
     }
 }
