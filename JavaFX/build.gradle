@@ -26,7 +26,7 @@ tasks.withType(JavaCompile) {
 
 application {
   mainModule = 'ph.dlsu.edu.ccs.stdiscm.jgang.probset3'
-  mainClass = 'ph.dlsu.edu.ccs.stdiscm.jgang.probset3.HelloApplication'
+  mainClass = 'ph.dlsu.edu.ccs.stdiscm.jgang.probset3.GUI'
 }
 
 javafx {
@@ -35,6 +35,8 @@ javafx {
 }
 
 dependencies {
+  implementation 'org.openjfx:javafx-controls:17'
+  implementation 'org.openjfx:javafx-media:17'
   implementation('org.controlsfx:controlsfx:11.2.1')
   implementation('com.dlsc.formsfx:formsfx-core:11.6.0') {
     exclude(group: 'org.openjfx')

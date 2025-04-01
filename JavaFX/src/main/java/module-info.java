@@ -1,6 +1,7 @@
 module ph.dlsu.edu.ccs.stdiscm.jgang.probset3 {
     requires javafx.controls;
     requires javafx.fxml;
+    requires javafx.media;
     requires javafx.web;
 
     requires org.controlsfx.controls;
