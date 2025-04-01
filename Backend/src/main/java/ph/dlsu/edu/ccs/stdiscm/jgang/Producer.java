@@ -4,6 +4,11 @@ import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
 
+/**
+ * Producer is responsible for uploading files to the consumer. It reads
+ * video files from the local system, and sens them to the consumer over
+ * a network socket
+ */
 public class Producer {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);

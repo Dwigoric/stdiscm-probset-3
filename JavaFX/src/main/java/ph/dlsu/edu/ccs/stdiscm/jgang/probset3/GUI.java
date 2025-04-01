@@ -12,6 +12,10 @@ import ph.dlsu.edu.ccs.stdiscm.jgang.probset3.Config;
 
 import java.io.File;
 
+/**
+ * Displays the list of videos stored in the VIDEO_FOLDER
+ * and allows uers to select and play videos
+ */
 public class GUI extends Application {
     private static final String VIDEO_FOLDER = Config.VIDEO_FOLDER;
 

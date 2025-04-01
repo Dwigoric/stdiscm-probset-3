@@ -5,6 +5,10 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ * Consumer is responsible for receiving uploaded videos from producers
+ * and saving them to the disk
+ */
 public class Consumer {
     public static void main(String[] args) {
         System.out.println("📡 Consumer running on port " + Config.SERVER_PORT);
