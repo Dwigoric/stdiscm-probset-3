@@ -4,17 +4,14 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.ListView;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.stage.Stage;
-import ph.dlsu.edu.ccs.stdiscm.jgang.probset3.Config;
 
 import java.io.File;
 
 /**
  * Displays the list of videos stored in the VIDEO_FOLDER
- * and allows uers to select and play videos
+ * and allows users to select and play videos
  */
 public class GUI extends Application {
     private static final String VIDEO_FOLDER = Config.VIDEO_FOLDER;
@@ -46,8 +43,13 @@ public class GUI extends Application {
         root.setLeft(videoList);  // Add the video list to the left side
         root.setCenter(mediaView);  // Add the media view to the center
 
+        // Add listener to adjust MediaView's size to maintain the aspect ratio
+        mediaView.setPreserveRatio(true);  // Preserve the aspect ratio of the video
+        mediaView.setFitWidth(800);        // Make sure the width scales with the window
+        mediaView.setFitHeight(600);       // Make sure the height scales with the window
+
         // Create and set the scene
-        Scene scene = new Scene(root, 800, 600);
+        Scene scene = new Scene(root, 1200, 600);
         stage.setTitle("Uploaded Videos");
         stage.setScene(scene);
         stage.show();
