@@ -10,7 +10,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  * overloading the system with too many videos at once.
  */
 public class VideoQueue {
-    private static final BlockingQueue<File> queue = new LinkedBlockingQueue<>(Config.MAX_QUEUE_SIZE);
+    private static final BlockingQueue<File> queue = new LinkedBlockingQueue<>(ConsumerConfig.MAX_QUEUE_SIZE);
 
     public static boolean addVideo(File file) {
         return queue.offer(file); // Returns false if full

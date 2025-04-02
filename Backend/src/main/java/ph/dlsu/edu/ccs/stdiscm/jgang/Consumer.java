@@ -35,7 +35,7 @@ public class Consumer {
         try (InputStream in = socket.getInputStream();
              BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
 
-            // Read the first line of the input, which is the filename
+            // Read the first line (filename) from the producer
             String fileName = reader.readLine();
             if (fileName == null) return;
 
@@ -44,14 +44,21 @@ public class Consumer {
             try (FileOutputStream fileOut = new FileOutputStream(file)) {
                 byte[] buffer = new byte[4096];
                 int bytesRead;
+
+                // Receive and write the file data in chunks
                 while ((bytesRead = in.read(buffer)) != -1) {
                     fileOut.write(buffer, 0, bytesRead);
                 }
+
+                System.out.println("Video saved: " + file.getName());
+
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
-            System.out.println("Video saved: " + file.getName());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 }

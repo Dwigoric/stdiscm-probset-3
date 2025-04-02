@@ -2,7 +2,6 @@ package ph.dlsu.edu.ccs.stdiscm.jgang;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.Scanner;
 
 /**
  * Producer is responsible for uploading files to the consumer. It reads
@@ -14,11 +13,11 @@ public class Producer {
         int numProducers = ProducerConfig.NUM_THREADS;
 
         // Define the folder where video files are stored
-        File folder = new File(Config.UPLOAD_FOLDER);
+        File folder = new File(ProducerConfig.UPLOAD_FOLDER);
         File[] videoFiles = folder.listFiles();
 
         if (videoFiles == null || videoFiles.length == 0) {
-            System.out.println("No video files found in " + Config.UPLOAD_FOLDER + " folder.");
+            System.out.println("No video files found in " + ProducerConfig.UPLOAD_FOLDER + " folder.");
             return;
         }
 
@@ -42,13 +41,15 @@ public class Producer {
             byte[] buffer = new byte[4096];
             int bytesRead;
 
-            // Send the filename first
+            // Send the filename first (ensure the file name is properly sent)
             out.write((videoFile.getName() + "\n").getBytes());
+            out.flush();  // Ensure the filename is fully sent before file content
 
-            // Send the actual file content
+            // Send the actual file content in chunks
             while ((bytesRead = fileInput.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
             }
+            out.flush();  // Ensure the last chunk is fully sent
 
             System.out.println("Uploaded: " + videoFile.getName());
 
@@ -57,4 +58,5 @@ public class Producer {
             e.printStackTrace();
         }
     }
+
 }
