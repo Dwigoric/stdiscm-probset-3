@@ -1,9 +1,33 @@
 package ph.dlsu.edu.ccs.stdiscm.jgang.probset3;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
 public class ProducerConfig {
-    public static final String SERVER_IP = "127.0.0.1";
-    public static final int SERVER_PORT = 3005;
-    public static  final int NUM_THREADS = 3;
-    public static final String UPLOAD_FOLDER = "../upload_videos/"; // Storage location
-    public static final int MAX_QUEUE_SIZE = 5; // Leaky bucket queue size
+    private static final Properties CONFIG = new Properties();
+    private static boolean initialized = false;
+
+    public static boolean init() {
+        if (initialized) return true;
+
+        try {
+            InputStream inputStream = ProducerConfig.class.getClassLoader().getResourceAsStream("producer.properties");
+            if (inputStream == null) {
+                System.err.println("Error: producer.properties not found in classpath");
+                return false;
+            }
+
+            CONFIG.load(inputStream);
+            initialized = true;
+            return true;
+        } catch (IOException e) {
+            System.err.println("Error loading configuration: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public static String get(String key) {
+        return CONFIG.getProperty(key);
+    }
 }
