@@ -11,6 +11,7 @@ version '1.0-SNAPSHOT'
 
 repositories {
   mavenCentral()
+  maven { url 'https://dl.bintray.com/dlsc/FormsFX' } // Optional: Add if using FormsFX
 }
 
 ext {
@@ -31,31 +32,35 @@ application {
 
 javafx {
   version = '21'
-  modules = ['javafx.controls', 'javafx.fxml', 'javafx.web', 'javafx.swing' ]
+  modules = ['javafx.controls', 'javafx.fxml', 'javafx.web', 'javafx.swing']
 }
 
 dependencies {
-  implementation 'org.openjfx:javafx-controls:17'
-  implementation 'org.openjfx:javafx-media:17'
-  implementation('org.controlsfx:controlsfx:11.2.1')
-  implementation('com.dlsc.formsfx:formsfx-core:11.6.0') {
-    exclude(group: 'org.openjfx')
-  }
-  implementation('net.synedra:validatorfx:0.5.0') {
-    exclude(group: 'org.openjfx')
-  }
-  implementation('org.kordamp.ikonli:ikonli-javafx:12.3.1')
-  implementation('org.kordamp.bootstrapfx:bootstrapfx-core:0.4.0')
+  implementation 'org.openjfx:javafx-controls:21'
+  implementation 'org.openjfx:javafx-media:21'
+
+  // Correct FormsFX dependency
+  implementation 'com.dlsc.formsfx:formsfx-core:11.6.0'
+
+  // Correct ValidatorFX dependency
+  implementation 'net.synedra:validatorfx:0.5.0'
+
+  implementation 'org.controlsfx:controlsfx:11.2.1'
+  implementation 'org.kordamp.ikonli:ikonli-javafx:12.3.1'
+  implementation 'org.kordamp.bootstrapfx:bootstrapfx-core:0.4.0'
+
+  // Correct TilesFX dependency
   implementation('eu.hansolo:tilesfx:21.0.3') {
-    exclude(group: 'org.openjfx')
+    exclude group: 'org.openjfx'
   }
 
-  testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
-  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+  testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
 test {
-useJUnitPlatform()}
+  useJUnitPlatform()
+}
 
 jlink {
   imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")

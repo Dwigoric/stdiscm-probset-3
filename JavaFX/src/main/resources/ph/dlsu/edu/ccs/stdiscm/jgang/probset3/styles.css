@@ -1,0 +1,37 @@
+.video-grid {
+    -fx-background-color: #181818;
+    -fx-padding: 10;
+}
+
+.video-card {
+    -fx-background-color: #303030;
+    -fx-background-radius: 5;
+    -fx-padding: 5;
+}
+
+.video-card:hover {
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 10, 0.5, 0, 0);
+    -fx-cursor: hand;
+}
+
+.media-player {
+    -fx-background-color: #000000;
+}
+
+.player-container {
+    -fx-background-color: #000000;
+    -fx-padding: 10px;
+    -fx-alignment: center;
+}
+
+.minimize-button {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-padding: 5px 10px;
+    -fx-border-radius: 5px;
+}
+
+.minimize-button:hover {
+    -fx-background-color: #2980b9;
+}
