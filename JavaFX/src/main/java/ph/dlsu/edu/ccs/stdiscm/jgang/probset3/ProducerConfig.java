@@ -1,4 +1,4 @@
-package ph.dlsu.edu.ccs.stdiscm.jgang;
+package ph.dlsu.edu.ccs.stdiscm.jgang.probset3;
 
 public class ProducerConfig {
     public static final String SERVER_IP = "127.0.0.1";
