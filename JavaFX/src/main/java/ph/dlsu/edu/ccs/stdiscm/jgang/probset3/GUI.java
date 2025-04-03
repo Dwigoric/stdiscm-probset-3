@@ -5,6 +5,7 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -26,16 +27,39 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GUI extends Application {
-    private static final String VIDEO_FOLDER = Config.VIDEO_FOLDER; // Path to your video folder
+
+    private static final String VIDEO_FOLDER = Config.VIDEO_FOLDER;
     private final Map<String, MediaPlayer> previewPlayers = new ConcurrentHashMap<>();
+    private Stage primaryStage;
+    private Scene mainScene;
+    private Scene fullscreenScene;
     private MediaPlayer mainPlayer;
     private MediaView mainMediaView;
-    private TilePane videoGrid;
-    private VBox playerContainer;
-    private Button closeButton;
+    private FlowPane videoGrid; // Changed to FlowPane for grid layout
+    private String currentVideoPath;
 
     @Override
     public void start(Stage stage) {
+        this.primaryStage = stage;
+        primaryStage.setTitle("YouTube-like Media Viewer");
+
+        // Initialize main scene
+        createMainScene();
+
+        // Initialize fullscreen scene
+        createFullscreenScene();
+
+        // Load videos into the grid
+        loadVideos("");
+        setupDirectoryWatcher();
+
+        // Set the initial scene
+        primaryStage.setScene(mainScene);
+        primaryStage.show();
+    }
+
+    // Method to create the main scene
+    private void createMainScene() {
         BorderPane root = new BorderPane();
         root.getStyleClass().add("root");
 
@@ -46,22 +70,36 @@ public class GUI extends Application {
         ScrollPane scrollPane = new ScrollPane();
         videoGrid = createVideoGrid();
         scrollPane.setContent(videoGrid);
+        scrollPane.setFitToWidth(true); // Make scrollpane fit to width
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); // Show vertical scrollbar when needed
         root.setCenter(scrollPane);
 
-        // Video player section for full playback
+        mainScene = new Scene(root, 1280, 720);
+        mainScene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
+    }
+
+    // Method to create the fullscreen scene
+    private void createFullscreenScene() {
+        StackPane root = new StackPane();
+        root.getStyleClass().add("fullscreen-root");
+
+        // MediaView for fullscreen playback
         mainMediaView = new MediaView();
         mainMediaView.setPreserveRatio(true);
-        playerContainer = createPlayerContainer();
-        root.setBottom(playerContainer);
+        root.getChildren().add(mainMediaView);
 
-        loadVideos("");
-        setupDirectoryWatcher();
+        // Back button to return to main scene
+        Button backButton = new Button("Back to Main");
+        backButton.setOnAction(e -> {
+            stopPlayback();
+            primaryStage.setScene(mainScene);
+        });
+        StackPane.setAlignment(backButton, Pos.TOP_LEFT);
+        StackPane.setMargin(backButton, new Insets(10));
+        root.getChildren().add(backButton);
 
-        Scene scene = new Scene(root, 1280, 720);
-        scene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
-        stage.setTitle("YouTube-like Media Viewer");
-        stage.setScene(scene);
-        stage.show();
+        fullscreenScene = new Scene(root, 1280, 720);
+        fullscreenScene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
     }
 
     private HBox createTopBar() {
@@ -81,27 +119,14 @@ public class GUI extends Application {
         return topBar;
     }
 
-    private TilePane createVideoGrid() {
-        TilePane grid = new TilePane();
+    private FlowPane createVideoGrid() {
+        FlowPane grid = new FlowPane();
         grid.getStyleClass().add("video-grid");
-        grid.setPrefColumns(4); // Number of columns in the grid
-        grid.setHgap(15);
-        grid.setVgap(15);
+        grid.setHgap(15); // Horizontal gap
+        grid.setVgap(15); // Vertical gap
         grid.setPadding(new Insets(15));
+        grid.setPrefWidth(1200); // Preferred width
         return grid;
-    }
-
-    private VBox createPlayerContainer() {
-        VBox container = new VBox();
-        container.getStyleClass().add("player-container");
-        container.getChildren().add(mainMediaView);
-
-        // Add close button
-        closeButton = new Button("Close");
-        closeButton.setOnAction(e -> closeVideo());
-        container.getChildren().add(closeButton);
-
-        return container;
     }
 
     private void loadVideos(String filter) {
@@ -121,17 +146,15 @@ public class GUI extends Application {
     }
 
     private void addVideoCard(String fileName) {
-        VBox card = new VBox(5);
+        VBox card = new VBox(5); // VBox to hold thumbnail and title
         card.getStyleClass().add("video-card");
 
-        StackPane thumbnail = createThumbnail(fileName);
-
-        Label title = new Label(fileName);
+        StackPane thumbnail = createThumbnail(fileName); // Create thumbnail
+        Label title = new Label(fileName); // Create title label
         title.getStyleClass().add("video-title");
 
-        card.getChildren().addAll(thumbnail, title);
-
-        videoGrid.getChildren().add(card);
+        card.getChildren().addAll(thumbnail, title); // Add thumbnail and title to card
+        videoGrid.getChildren().add(card); // Add card to grid
     }
 
     private StackPane createThumbnail(String fileName) {
@@ -140,11 +163,10 @@ public class GUI extends Application {
 
         // Temporary placeholder - replace with actual thumbnail generation logic
         ImageView placeholder = new ImageView(new Image("file:placeholder.png"));
-        placeholder.setFitWidth(320); // Thumbnail width
-        placeholder.setFitHeight(180); // Thumbnail height
+        placeholder.setFitWidth(320);
+        placeholder.setFitHeight(180);
 
         thumbnail.getChildren().add(placeholder);
-
         setupHoverActions(thumbnail, fileName);
 
         return thumbnail;
@@ -165,7 +187,7 @@ public class GUI extends Application {
             stopPreview(fileName);
         });
 
-        thumbnail.setOnMouseClicked(e -> playFullVideo(fileName));
+        thumbnail.setOnMouseClicked(e -> goToFullscreen(fileName));
     }
 
     private void showPreview(String fileName, StackPane container) {
@@ -200,25 +222,37 @@ public class GUI extends Application {
         }
     }
 
-    private void playFullVideo(String fileName) {
+    private void goToFullscreen(String fileName) {
+        currentVideoPath = VIDEO_FOLDER + "/" + fileName;
+        playFullVideo(currentVideoPath);
+        primaryStage.setScene(fullscreenScene);
+    }
+
+    private void playFullVideo(String videoPath) {
         if (mainPlayer != null) {
-            mainPlayer.stop();
-            mainPlayer.dispose();
+            stopPlayback();
         }
 
         try {
-            String filePath = VIDEO_FOLDER + "/" + fileName;
-            Media media = new Media(new File(filePath).toURI().toString());
+            Media media = new Media(new File(videoPath).toURI().toString());
             mainPlayer = new MediaPlayer(media);
             mainMediaView.setMediaPlayer(mainPlayer);
 
             mainPlayer.setOnReady(() -> {
-                mainMediaView.setFitWidth(640);
-                mainMediaView.setFitHeight(360);
+                mainMediaView.setFitWidth(1280);
+                mainMediaView.setFitHeight(720);
                 mainPlayer.play();
             });
         } catch (Exception e) {
             System.err.println("Error playing video: " + e.getMessage());
+        }
+    }
+
+    private void stopPlayback() {
+        if (mainPlayer != null) {
+            mainPlayer.stop();
+            mainPlayer.dispose();
+            mainPlayer = null;
         }
     }
 
@@ -246,15 +280,6 @@ public class GUI extends Application {
         } catch (IOException e) {
             System.err.println("Directory watcher error: " + e.getMessage());
         }
-    }
-
-    private void closeVideo() {
-        if (mainPlayer != null) {
-            mainPlayer.stop();
-            mainPlayer.dispose();
-            mainPlayer = null;
-        }
-        mainMediaView.setMediaPlayer(null);
     }
 
     public static void main(String[] args) {

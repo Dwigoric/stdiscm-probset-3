@@ -1,37 +1,47 @@
+.root {
+    -fx-background-color: #f9f9f9;
+}
+
+.top-bar {
+    -fx-padding: 10px;
+    -fx-background-color: #202020;
+}
+
+.search-field {
+    -fx-pref-width: 400px;
+    -fx-prompt-text-fill: #606060;
+    -fx-background-color: #121212;
+    -fx-text-fill: white;
+    -fx-border-color: #303030;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+}
+
 .video-grid {
-    -fx-background-color: #181818;
-    -fx-padding: 10;
+    -fx-background-color: #f9f9f9;
 }
 
 .video-card {
-    -fx-background-color: #303030;
-    -fx-background-radius: 5;
-    -fx-padding: 5;
+    -fx-background-color: #ffffff;
+    -fx-border-radius: 8px;
+    -fx-padding: 8px;
+    -fx-max-width: 320px; /* Ensure cards don't expand too much */
 }
 
 .video-card:hover {
-    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 10, 0.5, 0, 0);
+    -fx-background-color: #e0e0e0;
     -fx-cursor: hand;
 }
 
-.media-player {
-    -fx-background-color: #000000;
+.video-thumbnail {
+    -fx-border-radius: 8px;
 }
 
-.player-container {
-    -fx-background-color: #000000;
-    -fx-padding: 10px;
-    -fx-alignment: center;
+.video-title {
+    -fx-text-fill: black;
+    -fx-font-weight: bold;
 }
 
-.minimize-button {
-    -fx-background-color: #3498db;
-    -fx-text-fill: white;
-    -fx-font-size: 14px;
-    -fx-padding: 5px 10px;
-    -fx-border-radius: 5px;
-}
-
-.minimize-button:hover {
-    -fx-background-color: #2980b9;
+.fullscreen-root {
+    -fx-background-color: #000; /* Black background for fullscreen */
 }
