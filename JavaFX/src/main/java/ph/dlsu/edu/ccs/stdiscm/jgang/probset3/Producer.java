@@ -15,6 +15,9 @@ import java.nio.file.StandardOpenOption;
  * a network socket using NIO socket channels.
  */
 public class Producer {
+    private Producer() {
+    }
+
     public static void main(String[] args) {
         if (!ProducerConfig.init()) {
             System.err.println("Failed to initialize Producer configuration.");
