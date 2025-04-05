@@ -181,15 +181,20 @@ public class Consumer {
             while (ackBuffer.hasRemaining()) {
                 clientChannel.write(ackBuffer);
             }
-        } else if (header.startsWith("filelist")) {
+        } else if (header.startsWith("filelist:")) {
             // This is a request from the producer for a list of files
+            String filter = header.substring(9).trim();
             File videoDir = new File(ConsumerConfig.get("video_directory"));
             String[] videoFiles = videoDir.list();
             if (videoFiles != null) {
-                StringBuilder fileList = new StringBuilder("Files:\n");
-                for (String file : videoFiles) {
-                    fileList.append(file).append("\n");
+                StringBuilder fileList = new StringBuilder();
+                for (String videoFile : videoFiles) {
+                    if (filter.isEmpty() || videoFile.contains(filter)) {
+                        fileList.append(videoFile).append("\n");
+                    }
                 }
+
+                // Send the file list back to the producer
                 ByteBuffer fileListBuffer = ByteBuffer.wrap(fileList.toString().getBytes());
                 while (fileListBuffer.hasRemaining()) {
                     clientChannel.write(fileListBuffer);
