@@ -82,72 +82,38 @@ public class Consumer {
 
     private static void handleInbound(SocketChannel clientChannel) {
         try {
-            // Set up buffers
+            // Set up buffer for the header only
             ByteBuffer headerBuffer = ByteBuffer.allocate(1024);
-            ByteBuffer contentBuffer = ByteBuffer.allocate(4096);
-
-            StringBuilder headerBuilder = new StringBuilder(256);
             boolean headerComplete = false;
-            boolean contentComplete = false;
+            StringBuilder headerBuilder = new StringBuilder(256);
             String header = null;
 
-            while (clientChannel.isOpen()) {
-                if (!headerComplete) {
-                    // Read data into the header buffer
-                    int bytesRead = clientChannel.read(headerBuffer);
-                    // If the channel is closed, break
-                    if (bytesRead == -1) break;
+            // Read until we get the complete header
+            while (!headerComplete && clientChannel.isOpen()) {
+                int bytesRead = clientChannel.read(headerBuffer);
+                if (bytesRead == -1) break; // Channel closed
 
-                    // Process header data
-                    headerBuffer.flip();
-                    while (headerBuffer.hasRemaining() && !headerComplete) {
-                        char c = (char) headerBuffer.get();
-                        if (c == '\n') {
-                            header = headerBuilder.toString();
-                            headerComplete = true;
-                        } else {
-                            headerBuilder.append(c);
-                        }
-                    }
-
-                    // If we have remaining data after the header, it's part of the content
-                    if (headerBuffer.hasRemaining()) {
-                        // Create a new buffer with remaining data
-                        ByteBuffer remainingData = ByteBuffer.allocate(headerBuffer.remaining());
-                        remainingData.put(headerBuffer);
-                        remainingData.flip();
-
-                        // Put remaining data to the content buffer
-                        contentBuffer.clear();
-                        contentBuffer.put(remainingData);
-                        contentBuffer.flip();
-                    }
-
-                    headerBuffer.clear();
-                }
-
-                if (!contentComplete) {
-                    // Read content data
-                    int bytesRead = clientChannel.read(contentBuffer);
-                    if (bytesRead == -1) break;
-
-                    // Check if we have received all content
-                    if (bytesRead < contentBuffer.capacity()) {
-                        contentComplete = true;
+                headerBuffer.flip();
+                while (headerBuffer.hasRemaining() && !headerComplete) {
+                    char c = (char) headerBuffer.get();
+                    if (c == '\n') {
+                        header = headerBuilder.toString();
+                        headerComplete = true;
+                    } else {
+                        headerBuilder.append(c);
                     }
                 }
-
-                if (headerComplete && contentComplete) break;
+                headerBuffer.clear();
             }
 
-            // If we do not have a header, close channel
+            // If we don't have a header, close channel
             if (header == null) {
                 clientChannel.close();
                 return;
             }
 
             // Handle the header and content
-            handleHeader(header, contentBuffer, clientChannel);
+            handleHeader(header, clientChannel);
 
             // Close the client channel
             clientChannel.close();
@@ -156,18 +122,31 @@ public class Consumer {
         }
     }
 
-    private static void handleHeader(String header, ByteBuffer contentBuffer, SocketChannel clientChannel) throws IOException {
+    private static void handleHeader(String header, SocketChannel clientChannel) throws IOException {
         if (header.startsWith("fileput:")) {
             // Extract filename from header
             String filename = header.substring(8).trim();
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
-            // Write the content to the file
-            try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-                // Write the content buffer to the file
-                while (contentBuffer.hasRemaining()) {
-                    fileChannel.write(contentBuffer);
+            // Write the content directly to the file
+            try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(),
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+
+                ByteBuffer buffer = ByteBuffer.allocate(8192);
+                long bytesWritten = 0;
+
+                // Read from socket and write to file until end of stream
+                while (true) {
+                    int bytesRead = clientChannel.read(buffer);
+                    if (bytesRead == -1) break;
+
+                    buffer.flip();
+                    fileChannel.write(buffer);
+                    bytesWritten += bytesRead;
+                    buffer.clear();
                 }
+
+                System.out.println("Received file: " + filename + " (" + bytesWritten + " bytes)");
             }
 
             // Add the file to the queue
