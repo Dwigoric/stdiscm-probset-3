@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class GUI extends Application {
 
-    private static String VIDEO_FOLDER;
+    private static final String VIDEO_FOLDER = Config.VIDEO_FOLDER;
     private final Map<String, MediaPlayer> previewPlayers = new ConcurrentHashMap<>();
     private Stage primaryStage;
     private Scene mainScene;
@@ -283,13 +283,6 @@ public class GUI extends Application {
     }
 
     public static void main(String[] args) {
-        if (!ProducerConfig.init()) {
-            System.err.println("Failed to initialize Producer configuration.");
-            return;
-        }
-
-        VIDEO_FOLDER = ProducerConfig.get("video_directory");
-
         launch(args);
     }
 }

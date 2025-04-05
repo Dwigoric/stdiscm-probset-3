@@ -1,9 +1,6 @@
 package ph.dlsu.edu.ccs.stdiscm.jgang.probset3;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
 
 /**
@@ -13,25 +10,14 @@ import java.net.Socket;
  */
 public class Producer {
     public static void main(String[] args) {
-        if (!ProducerConfig.init()) {
-            System.err.println("Failed to initialize Producer configuration.");
-            return;
-        }
-
-        int numProducers;
-        try {
-            numProducers = Integer.parseInt(ProducerConfig.get("threads"));
-        } catch (NumberFormatException e) {
-            System.err.println("Invalid number of producers specified. Defaulting to 1.");
-            numProducers = 1;
-        }
+        int numProducers = ProducerConfig.NUM_THREADS;
 
         // Define the folder where video files are stored
-        File folder = new File(ProducerConfig.get("video_directory"));
+        File folder = new File(ProducerConfig.UPLOAD_FOLDER);
         File[] videoFiles = folder.listFiles();
 
         if (videoFiles == null || videoFiles.length == 0) {
-            System.out.println("No video files found in " + ProducerConfig.get("video_directory") + " folder.");
+            System.out.println("No video files found in " + ProducerConfig.UPLOAD_FOLDER + " folder.");
             return;
         }
 
@@ -48,15 +34,7 @@ public class Producer {
      * @param videoFile The video file to send.
      */
     private static void sendVideoToConsumer(File videoFile) {
-        int port;
-        try {
-            port = Integer.parseInt(ProducerConfig.get("server.port"));
-        } catch (NumberFormatException e) {
-            System.err.println("Invalid port number in configuration: " + e.getMessage());
-            return;
-        }
-
-        try (Socket socket = new Socket(ProducerConfig.get("server.ip_addr"), port);
+        try (Socket socket = new Socket(ProducerConfig.SERVER_IP, ProducerConfig.SERVER_PORT);
              OutputStream out = socket.getOutputStream();
              FileInputStream fileInput = new FileInputStream(videoFile)) {
 
