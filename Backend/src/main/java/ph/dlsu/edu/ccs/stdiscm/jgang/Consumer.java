@@ -181,44 +181,6 @@ public class Consumer {
             while (ackBuffer.hasRemaining()) {
                 clientChannel.write(ackBuffer);
             }
-        } else if (header.startsWith("filelist:")) {
-            // This is a request from the producer for a list of files
-            String filter = header.substring(9).trim();
-            File videoDir = new File(ConsumerConfig.get("video_directory"));
-            String[] videoFiles = videoDir.list();
-            if (videoFiles != null) {
-                StringBuilder fileList = new StringBuilder();
-                for (String videoFile : videoFiles) {
-                    if (filter.isEmpty() || videoFile.contains(filter)) {
-                        fileList.append(videoFile).append("\n");
-                    }
-                }
-
-                // Send the file list back to the producer
-                ByteBuffer fileListBuffer = ByteBuffer.wrap(fileList.toString().getBytes());
-                while (fileListBuffer.hasRemaining()) {
-                    clientChannel.write(fileListBuffer);
-                }
-            } else {
-                System.err.println("No files found in directory.");
-            }
-        } else if (header.startsWith("fileget:")) {
-            // This is a request from the producer for a file
-            String filename = header.substring(8).trim();
-            File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
-            if (videoFile.exists()) {
-                // Send the file back to the producer
-                ByteBuffer fileBuffer = ByteBuffer.allocate((int) videoFile.length());
-                try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.READ)) {
-                    fileChannel.read(fileBuffer);
-                }
-                fileBuffer.flip();
-                while (fileBuffer.hasRemaining()) {
-                    clientChannel.write(fileBuffer);
-                }
-            } else {
-                System.err.println("Requested file not found: " + filename);
-            }
         } else {
             System.err.println("Unknown header: " + header);
         }
