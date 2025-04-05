@@ -1,5 +1,6 @@
 ### Manually Added ###
 .idea/discord.xml
+consumer.properties
 ######################
 
 .gradle
