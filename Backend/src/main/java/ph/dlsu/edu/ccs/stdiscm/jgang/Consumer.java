@@ -1,11 +1,11 @@
 package ph.dlsu.edu.ccs.stdiscm.jgang;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -69,7 +69,7 @@ public class Consumer {
                         clientChannel.configureBlocking(false);
 
                         // Submit to thread pool
-                        executorService.submit(() -> handleInbound(clientChannel));
+                        executorService.submit(() -> handleUpload(clientChannel));
                     }
                 }
             }
@@ -78,19 +78,25 @@ public class Consumer {
         }
     }
 
-    private static void handleInbound(SocketChannel clientChannel) {
+    /**
+     * Handles the upload process for a single video file from a producer.
+     *
+     * @param clientChannel The channel connected to the producer.
+     */
+    private static void handleUpload(SocketChannel clientChannel) {
         try {
             // Set up buffers
             ByteBuffer headerBuffer = ByteBuffer.allocate(1024);
             ByteBuffer contentBuffer = ByteBuffer.allocate(4096);
 
-            StringBuilder headerBuilder = new StringBuilder(256);
-            boolean headerComplete = false;
-            boolean contentComplete = false;
-            String header = null;
+            // Read the file name (first line ending with newline)
+            StringBuilder fileNameBuilder = new StringBuilder();
+            boolean fileNameComplete = false;
+            String fileName = null;
+            FileChannel fileChannel = null;
 
             while (clientChannel.isOpen()) {
-                if (!headerComplete) {
+                if (!fileNameComplete) {
                     // Read data into the header buffer
                     int bytesRead = clientChannel.read(headerBuffer);
                     // If the channel is closed, break
@@ -98,122 +104,54 @@ public class Consumer {
 
                     // Process header data
                     headerBuffer.flip();
-                    while (headerBuffer.hasRemaining() && !headerComplete) {
+                    while (headerBuffer.hasRemaining() && !fileNameComplete) {
                         char c = (char) headerBuffer.get();
                         if (c == '\n') {
-                            header = headerBuilder.toString();
-                            headerComplete = true;
+                            fileName = fileNameBuilder.toString();
+                            fileNameComplete = true;
+
+                            // Create and open the file
+                            File file = new File(ConsumerConfig.get("video_directory") + "/" + fileName);
+                            fileChannel = new FileOutputStream(file).getChannel();
                         } else {
-                            headerBuilder.append(c);
+                            fileNameBuilder.append(c);
                         }
                     }
 
-                    // If we have remaining data after the header, it's part of the content
-                    if (headerBuffer.hasRemaining()) {
+                    // If we have remaining data after the filename, it's part of the content
+                    if (headerBuffer.hasRemaining() && fileNameComplete) {
                         // Create a new buffer with remaining data
                         ByteBuffer remainingData = ByteBuffer.allocate(headerBuffer.remaining());
                         remainingData.put(headerBuffer);
                         remainingData.flip();
 
-                        // Put remaining data to the content buffer
-                        contentBuffer.clear();
-                        contentBuffer.put(remainingData);
-                        contentBuffer.flip();
+                        // Write the remaining data to the file
+                        fileChannel.write(remainingData);
                     }
 
                     headerBuffer.clear();
-                }
-
-                if (!contentComplete) {
-                    // Read content data
+                } else {
+                    // Read file content directly to file
                     int bytesRead = clientChannel.read(contentBuffer);
+                    // If the channel is closed, break
                     if (bytesRead == -1) break;
 
-                    // Check if we have received all content
-                    if (bytesRead < contentBuffer.capacity()) {
-                        contentComplete = true;
-                    }
+                    // Write content to file
+                    contentBuffer.flip();
+                    fileChannel.write(contentBuffer);
+                    contentBuffer.clear();
                 }
-
-                if (headerComplete && contentComplete) break;
             }
 
-            // If we do not have a header, close channel
-            if (header == null) {
-                clientChannel.close();
-                return;
+            if (fileChannel != null) {
+                fileChannel.close();
+                System.out.println("Video saved: " + fileName);
             }
 
-            // Handle the header and content
-            handleHeader(header, contentBuffer, clientChannel);
-
-            // Close the client channel
             clientChannel.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void handleHeader(String header, ByteBuffer contentBuffer, SocketChannel clientChannel) throws IOException {
-        if (header.startsWith("fileput:")) {
-            // Extract filename from header
-            String filename = header.substring(8).trim();
-            File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
-
-            // Write the content to the file
-            try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-                // Write the content buffer to the file
-                while (contentBuffer.hasRemaining()) {
-                    fileChannel.write(contentBuffer);
-                }
-            }
-
-            // Add the file to the queue
-            if (!VideoQueue.addVideo(videoFile)) {
-                System.err.println("Queue is full, unable to add video: " + filename);
-            }
-
-            // Send acknowledgment back to the producer
-            String ackMessage = "Received: " + filename + "\n";
-            ByteBuffer ackBuffer = ByteBuffer.wrap(ackMessage.getBytes());
-            while (ackBuffer.hasRemaining()) {
-                clientChannel.write(ackBuffer);
-            }
-        } else if (header.startsWith("filelist")) {
-            // This is a request from the producer for a list of files
-            File videoDir = new File(ConsumerConfig.get("video_directory"));
-            String[] videoFiles = videoDir.list();
-            if (videoFiles != null) {
-                StringBuilder fileList = new StringBuilder("Files:\n");
-                for (String file : videoFiles) {
-                    fileList.append(file).append("\n");
-                }
-                ByteBuffer fileListBuffer = ByteBuffer.wrap(fileList.toString().getBytes());
-                while (fileListBuffer.hasRemaining()) {
-                    clientChannel.write(fileListBuffer);
-                }
-            } else {
-                System.err.println("No files found in directory.");
-            }
-        } else if (header.startsWith("fileget:")) {
-            // This is a request from the producer for a file
-            String filename = header.substring(8).trim();
-            File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
-            if (videoFile.exists()) {
-                // Send the file back to the producer
-                ByteBuffer fileBuffer = ByteBuffer.allocate((int) videoFile.length());
-                try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.READ)) {
-                    fileChannel.read(fileBuffer);
-                }
-                fileBuffer.flip();
-                while (fileBuffer.hasRemaining()) {
-                    clientChannel.write(fileBuffer);
-                }
-            } else {
-                System.err.println("Requested file not found: " + filename);
-            }
-        } else {
-            System.err.println("Unknown header: " + header);
-        }
-    }
 }

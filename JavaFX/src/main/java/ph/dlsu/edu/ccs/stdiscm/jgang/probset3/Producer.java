@@ -65,8 +65,8 @@ public class Producer {
                 FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.READ)
         ) {
             // Send the filename first
-            String header = "fileput:" + videoFile.getName() + "\n";
-            ByteBuffer filenameBuffer = ByteBuffer.wrap(header.getBytes(StandardCharsets.UTF_8));
+            String filename = videoFile.getName() + "\n";
+            ByteBuffer filenameBuffer = ByteBuffer.wrap(filename.getBytes(StandardCharsets.UTF_8));
             while (filenameBuffer.hasRemaining()) {
                 socketChannel.write(filenameBuffer);
             }
