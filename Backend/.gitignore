@@ -1,6 +1,7 @@
 ### Manually Added ###
 .idea/discord.xml
 consumer.properties
+producer.properties
 ######################
 
 .gradle

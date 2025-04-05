@@ -276,12 +276,12 @@ public class GUI extends Application {
     }
 
     public static void main(String[] args) {
-        if (!ProducerConfig.init()) {
-            System.err.println("Failed to initialize Producer configuration.");
+        if (!Config.init()) {
+            System.err.println("Failed to initialize configuration.");
             return;
         }
 
-        VIDEO_FOLDER = ProducerConfig.get("cache_directory");
+        VIDEO_FOLDER = Config.get("video_directory");
 
         if (VIDEO_FOLDER == null || VIDEO_FOLDER.isEmpty()) {
             System.err.println("Video folder not specified in configuration.");
