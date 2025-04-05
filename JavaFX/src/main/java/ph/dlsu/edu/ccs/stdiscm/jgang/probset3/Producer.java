@@ -1,5 +1,6 @@
 package ph.dlsu.edu.ccs.stdiscm.jgang.probset3;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -8,6 +9,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 
 /**
  * Producer is responsible for uploading files to the consumer. It reads
@@ -98,7 +100,7 @@ public class Producer {
      *
      * @return An array of video file names.
      */
-    public static String[] getVideoFiles(String filter) {
+    public static List<String> getVideoFiles(String filter) {
         try (
                 SocketChannel socketChannel = SocketChannel.open(
                         new InetSocketAddress(ProducerConfig.get("server.ip_addr"), Integer.parseInt(ProducerConfig.get("server.port"))))
@@ -119,11 +121,11 @@ public class Producer {
                 responseBuffer.clear();
             }
 
-            return response.toString().split("\n");
+            return List.of(response.toString().split("\n"));
         } catch (IOException e) {
             System.err.println("Error while retrieving video files.");
             e.printStackTrace();
-            return new String[0];
+            return List.of();
         }
     }
 
@@ -147,17 +149,17 @@ public class Producer {
 
             // Read the response
             ByteBuffer responseBuffer = ByteBuffer.allocate(4096);
-            StringBuilder response = new StringBuilder();
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             while (socketChannel.read(responseBuffer) > 0) {
                 responseBuffer.flip();
-                response.append(StandardCharsets.UTF_8.decode(responseBuffer));
+                outputStream.write(responseBuffer.array(), 0, responseBuffer.limit());
                 responseBuffer.clear();
             }
 
-            // Save the file to cache
+            // Save the received file
             File videoFile = new File(ProducerConfig.get("cache_directory"), filename);
             try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-                fileChannel.write(ByteBuffer.wrap(response.toString().getBytes(StandardCharsets.UTF_8)));
+                fileChannel.write(ByteBuffer.wrap(outputStream.toByteArray()));
             }
 
             return videoFile;

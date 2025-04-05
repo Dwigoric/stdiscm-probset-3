@@ -21,7 +21,10 @@ import javafx.util.Duration;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GUI extends Application {
@@ -128,19 +131,39 @@ public class GUI extends Application {
     }
 
     private void loadVideos(String filter) {
+        ArrayList<File> files = new ArrayList<>();
         File folder = new File(VIDEO_FOLDER);
-        File[] files = folder.listFiles();
+        List<String> remoteFileNames = Producer.getVideoFiles(filter);
 
-        if (files != null) {
-            Platform.runLater(() -> {
-                videoGrid.getChildren().clear();
-                for (File file : files) {
-                    if (file.isFile() && file.getName().toLowerCase().contains(filter)) {
-                        addVideoCard(file.getName());
-                    }
-                }
-            });
+        // Clean local files if they are not in remote files
+        for (File localFile : Objects.requireNonNull(folder.listFiles())) {
+            if (!localFile.isDirectory() && !remoteFileNames.contains(localFile.getName())) {
+                localFile.delete();
+            }
         }
+
+        for (String fileName : remoteFileNames) {
+            // If already in local files, use local file
+            File localFile = new File(VIDEO_FOLDER + "/" + fileName);
+            if (localFile.exists()) {
+                files.add(localFile);
+            } else {
+                // If not in local files, use remote file
+                File remoteFile = Producer.getVideoFile(fileName);
+                if (remoteFile != null) {
+                    files.add(remoteFile);
+                }
+            }
+        }
+
+        Platform.runLater(() -> {
+            videoGrid.getChildren().clear();
+            for (File file : files) {
+                if (file.isFile() && file.getName().toLowerCase().contains(filter)) {
+                    addVideoCard(file.getName());
+                }
+            }
+        });
     }
 
     private void addVideoCard(String fileName) {
