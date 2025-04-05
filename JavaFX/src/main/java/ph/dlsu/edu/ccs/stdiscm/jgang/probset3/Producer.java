@@ -1,15 +1,18 @@
 package ph.dlsu.edu.ccs.stdiscm.jgang.probset3;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.StandardOpenOption;
 
 /**
  * Producer is responsible for uploading files to the consumer. It reads
  * video files from the local system and sends them to the consumer over
- * a network socket.
+ * a network socket using NIO socket channels.
  */
 public class Producer {
     public static void main(String[] args) {
@@ -43,7 +46,7 @@ public class Producer {
     }
 
     /**
-     * Sends the video file to the consumer over a socket connection.
+     * Sends the video file to the consumer over a socket channel connection.
      *
      * @param videoFile The video file to send.
      */
@@ -56,29 +59,34 @@ public class Producer {
             return;
         }
 
-        try (Socket socket = new Socket(ProducerConfig.get("server.ip_addr"), port);
-             OutputStream out = socket.getOutputStream();
-             FileInputStream fileInput = new FileInputStream(videoFile)) {
-
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-
-            // Send the filename first (ensure the file name is properly sent)
-            out.write((videoFile.getName() + "\n").getBytes());
-            out.flush();  // Ensure the filename is fully sent before file content
-
-            // Send the actual file content in chunks
-            while ((bytesRead = fileInput.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
+        try (
+                SocketChannel socketChannel = SocketChannel.open(
+                        new InetSocketAddress(ProducerConfig.get("server.ip_addr"), port));
+                FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.READ)
+        ) {
+            // Send the filename first
+            String filename = videoFile.getName() + "\n";
+            ByteBuffer filenameBuffer = ByteBuffer.wrap(filename.getBytes(StandardCharsets.UTF_8));
+            while (filenameBuffer.hasRemaining()) {
+                socketChannel.write(filenameBuffer);
             }
-            out.flush();  // Ensure the last chunk is fully sent
+
+            // Use transferTo for efficient file transfer
+            long position = 0;
+            long fileSize = fileChannel.size();
+            while (position < fileSize) {
+                long bytesTransferred = fileChannel.transferTo(position, fileSize - position, socketChannel);
+                if (bytesTransferred == 0) {
+                    // Prevent infinite loop if no progress is made
+                    break;
+                }
+                position += bytesTransferred;
+            }
 
             System.out.println("Uploaded: " + videoFile.getName());
-
         } catch (IOException e) {
             System.err.println("Error while uploading: " + videoFile.getName());
             e.printStackTrace();
         }
     }
-
 }
