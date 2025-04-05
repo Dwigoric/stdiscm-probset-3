@@ -9,28 +9,14 @@ import java.net.Socket;
  * and saving them to the disk.
  */
 public class Consumer {
-
     public static void main(String[] args) {
-        if (!ConsumerConfig.init()) {
-            System.err.println("Failed to initialize Consumer configuration.");
-            return;
-        }
-
-        // Convert the port from String to int
-        int port;
-        try {
-            port = Integer.parseInt(ConsumerConfig.get("port"));
-        } catch (NumberFormatException e) {
-            System.err.println("Invalid port number in configuration: " + e.getMessage());
-            return;
-        }
-        System.out.println("Consumer running on port " + port);
+        System.out.println("Consumer running on port " + ConsumerConfig.SERVER_PORT);
 
         // Create the folder for storing videos if it doesn't exist
-        File folder = new File(ConsumerConfig.get("video_directory"));
+        File folder = new File(ConsumerConfig.DOWNLOAD_FOLDER);
         if (!folder.exists()) folder.mkdirs();
 
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+        try (ServerSocket serverSocket = new ServerSocket(ConsumerConfig.SERVER_PORT)) {
             while (true) {
                 Socket socket = serverSocket.accept();  // Wait for a producer to connect
                 new Thread(() -> handleUpload(socket)).start();  // Handle the upload in a new thread
@@ -53,7 +39,7 @@ public class Consumer {
             String fileName = reader.readLine();
             if (fileName == null) return;
 
-            File file = new File(ConsumerConfig.get("video_directory") + "/" + fileName);
+            File file = new File(ConsumerConfig.DOWNLOAD_FOLDER + "/" + fileName);
 
             try (FileOutputStream fileOut = new FileOutputStream(file)) {
                 byte[] buffer = new byte[4096];
