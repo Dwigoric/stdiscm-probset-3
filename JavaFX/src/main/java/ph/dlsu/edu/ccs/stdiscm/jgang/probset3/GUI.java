@@ -11,8 +11,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
@@ -161,20 +159,34 @@ public class GUI extends Application {
         StackPane thumbnail = new StackPane();
         thumbnail.getStyleClass().add("video-thumbnail");
 
-        // Temporary placeholder - replace with actual thumbnail generation logic
-        ImageView placeholder = new ImageView(new Image("file:placeholder.png"));
-        placeholder.setFitWidth(320);
-        placeholder.setFitHeight(180);
+        String filePath = VIDEO_FOLDER + "/" + fileName;
+        Media media = new Media(new File(filePath).toURI().toString());
+        MediaPlayer player = new MediaPlayer(media);
 
-        thumbnail.getChildren().add(placeholder);
-        setupHoverActions(thumbnail, fileName);
+        player.setOnReady(() -> {
+            MediaView previewView = new MediaView(player);
+            previewView.setFitWidth(320);
+            previewView.setFitHeight(180);
+            thumbnail.getChildren().add(previewView);
+
+            player.setCycleCount(MediaPlayer.INDEFINITE);
+            player.setAutoPlay(false);
+            player.setOnEndOfMedia(() -> player.seek(Duration.ZERO));
+
+            player.setStartTime(Duration.ZERO);
+            player.setStopTime(Duration.seconds(10));
+        });
+
+        previewPlayers.put(fileName, player);
+
+        setupHoverActions(thumbnail, fileName, player);
 
         return thumbnail;
     }
 
-    private void setupHoverActions(StackPane thumbnail, String fileName) {
+    private void setupHoverActions(StackPane thumbnail, String fileName, MediaPlayer player) {
         Timeline hoverTimer = new Timeline();
-        KeyFrame hoverStart = new KeyFrame(Duration.millis(300), e -> showPreview(fileName, thumbnail));
+        KeyFrame hoverStart = new KeyFrame(Duration.millis(300), e -> showPreview(player));
         KeyFrame hoverEnd = new KeyFrame(Duration.seconds(10));
 
         thumbnail.setOnMouseEntered(e -> {
@@ -190,24 +202,9 @@ public class GUI extends Application {
         thumbnail.setOnMouseClicked(e -> goToFullscreen(fileName));
     }
 
-    private void showPreview(String fileName, StackPane container) {
+    private void showPreview(MediaPlayer player) {
         try {
-            String filePath = VIDEO_FOLDER + "/" + fileName;
-            Media media = new Media(new File(filePath).toURI().toString());
-            MediaPlayer player = new MediaPlayer(media);
-
-            player.setOnReady(() -> {
-                MediaView previewView = new MediaView(player);
-                previewView.setFitWidth(320);
-                previewView.setFitHeight(180);
-                container.getChildren().add(previewView);
-
-                player.setStartTime(Duration.ZERO);
-                player.setStopTime(Duration.seconds(10));
-                player.play();
-            });
-
-            previewPlayers.put(fileName, player);
+            player.play();
         } catch (Exception e) {
             System.err.println("Error loading preview: " + e.getMessage());
         }
@@ -215,11 +212,7 @@ public class GUI extends Application {
 
     private void stopPreview(String fileName) {
         MediaPlayer player = previewPlayers.get(fileName);
-        if (player != null) {
-            player.stop();
-            player.dispose();
-            previewPlayers.remove(fileName);
-        }
+        if (player != null) player.stop();
     }
 
     private void goToFullscreen(String fileName) {
