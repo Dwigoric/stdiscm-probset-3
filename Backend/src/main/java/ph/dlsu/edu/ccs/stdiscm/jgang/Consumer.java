@@ -15,8 +15,6 @@ import java.util.concurrent.Executors;
  * and saving them to the disk.
  */
 public class Consumer {
-    private Consumer() {
-    }
 
     public static void main(String[] args) {
         if (!ConsumerConfig.init()) {
