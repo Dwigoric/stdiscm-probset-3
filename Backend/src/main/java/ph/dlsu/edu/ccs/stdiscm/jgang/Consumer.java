@@ -9,12 +9,17 @@ import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Consumer is responsible for receiving uploaded videos from producers
  * and saving them to the disk.
  */
 public class Consumer {
+
+    private static ExecutorService executorService;
+    private static Thread processorThread;
+
     private Consumer() {
     }
 
@@ -35,7 +40,7 @@ public class Consumer {
         System.out.println("Consumer running on port " + port);
 
         int threadCount = Integer.parseInt(ConsumerConfig.get("threads"));
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        executorService = Executors.newFixedThreadPool(threadCount);
 
         // Create the folder for storing videos if it doesn't exist
         File folder = new File(ConsumerConfig.get("video_directory"));
@@ -55,7 +60,7 @@ public class Consumer {
                 }
             }
         };
-        Thread processorThread = new Thread(queueProcessor);
+        processorThread = new Thread(queueProcessor);
         processorThread.start();
 
         // Start the server to accept incoming connections
@@ -95,6 +100,10 @@ public class Consumer {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            // Ensure that the executor service is shut down gracefully
+            shutdownExecutorService();
+            System.out.println("Consumer shutdown completed.");
         }
     }
 
@@ -209,6 +218,23 @@ public class Consumer {
             System.out.println("Video moved to storage: " + targetFile.getAbsolutePath());
         } catch (IOException e) {
             System.err.println("Error saving video to ../videostorage: " + e.getMessage());
+        }
+    }
+    private static void shutdownExecutorService() {
+        // Interrupt the processor thread if it is running
+        if (processorThread != null && processorThread.isAlive()) {
+            processorThread.interrupt();
+        }
+
+        // Gracefully shut down the executor service
+        try {
+            executorService.shutdown();
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow(); // Forcefully shut down after 60 seconds
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
