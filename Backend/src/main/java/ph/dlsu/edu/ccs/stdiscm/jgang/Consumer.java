@@ -41,6 +41,24 @@ public class Consumer {
         File folder = new File(ConsumerConfig.get("video_directory"));
         if (!folder.exists()) folder.mkdirs();
 
+        // Start background thread to drain the leaky bucket queue
+        Runnable queueProcessor = () -> {
+            while (true) {
+                try {
+                    File video = VideoQueue.getVideo(); // blocks if empty
+                    executorService.submit(() -> {
+                        saveVideo(video);
+                    });
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        };
+        Thread processorThread = new Thread(queueProcessor);
+        processorThread.start();
+
+        // Start the server to accept incoming connections
         try {
             // Create a selector
             Selector selector = Selector.open();
@@ -149,7 +167,7 @@ public class Consumer {
                 System.out.println("Received file: " + filename + " (" + bytesWritten + " bytes)");
             }
 
-            // Add the file to the queue
+            // Add file to queue
             if (!VideoQueue.addVideo(videoFile)) {
                 System.err.println("Queue is full, unable to add video: " + filename);
             }
@@ -164,4 +182,34 @@ public class Consumer {
             System.err.println("Unknown header: " + header);
         }
     }
+    private static void saveVideo(File video) {
+        if (video == null || !video.exists()) {
+            System.err.println("Invalid video file: " + video);
+            return;
+        }
+
+        // Create the target directory if it doesn't exist
+        File targetDir = new File("../videostorage");
+        if (!targetDir.exists()) {
+            boolean created = targetDir.mkdirs();
+            if (!created) {
+                System.err.println("Failed to create ../videostorage directory.");
+                return;
+            }
+        }
+        File targetFile = new File(targetDir, video.getName());
+
+        // Move the video to the target directory
+        try {
+            java.nio.file.Files.copy(
+                    video.toPath(),
+                    targetFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            );
+            System.out.println("Video moved to storage: " + targetFile.getAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("Error saving video to ../videostorage: " + e.getMessage());
+        }
+    }
+
 }

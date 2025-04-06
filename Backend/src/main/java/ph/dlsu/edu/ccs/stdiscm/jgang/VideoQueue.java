@@ -15,4 +15,8 @@ public class VideoQueue {
     public static boolean addVideo(File file) {
         return queue.offer(file); // Returns false if full
     }
+
+    public static File getVideo() throws InterruptedException {
+        return queue.take(); // Blocks if empty
+    }
 }
