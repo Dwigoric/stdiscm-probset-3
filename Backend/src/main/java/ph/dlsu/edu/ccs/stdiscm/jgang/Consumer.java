@@ -10,7 +10,6 @@ import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Consumer is responsible for receiving uploaded videos from producers
@@ -169,25 +168,22 @@ public class Consumer {
 
     private static void handleHeader(String header, SocketChannel clientChannel, ByteBuffer leftoverBuffer) throws IOException {
         if (header.startsWith("fileput:")) {
-            // Existing logic to handle file upload
-
+            // Extract filename
             String filename = header.substring(8).trim();
-            if (filename.equalsIgnoreCase(".DS_Store")) {
-                System.out.println("Ignored file: .DS_Store");
-                return; // Don't process it
-            }
-
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
             try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(),
                     StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
                 long bytesWritten = 0;
+
+                // Write leftover buffer (data after the header)
                 if (leftoverBuffer != null && leftoverBuffer.hasRemaining()) {
                     fileChannel.write(leftoverBuffer);
                     bytesWritten += leftoverBuffer.remaining();
                 }
 
+                // Continue reading rest of the file from the socket
                 ByteBuffer buffer = ByteBuffer.allocate(8192);
                 int bytesRead;
                 while ((bytesRead = clientChannel.read(buffer)) != -1) {
@@ -212,24 +208,10 @@ public class Consumer {
                 clientChannel.write(ackBuffer);
             }
 
-        } else if (header.equalsIgnoreCase("queuecheck")) {
-            // Respond with queue status
-            String response;
-            if (VideoQueue.isFull()) {
-                response = "full\n";
-            } else {
-                response = "ok\n";
-            }
-            ByteBuffer responseBuffer = ByteBuffer.wrap(response.getBytes(StandardCharsets.UTF_8));
-            while (responseBuffer.hasRemaining()) {
-                clientChannel.write(responseBuffer);
-            }
         } else {
             System.err.println("Unknown header: " + header);
         }
     }
-
-
 
 
     private static void saveVideo(File video) {

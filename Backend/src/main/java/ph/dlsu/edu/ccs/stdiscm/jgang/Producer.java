@@ -62,63 +62,34 @@ public class Producer {
             return;
         }
 
-        boolean uploaded = false;
-
-        while (!uploaded) {
-            try (
-                    SocketChannel socketChannel = SocketChannel.open(
-                            new InetSocketAddress(ProducerConfig.get("server.ip_addr"), port));
-                    FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.READ)
-            ) {
-                // Step 1: Ask the consumer if the queue has space
-                String checkMsg = "queuecheck\n";
-                socketChannel.write(ByteBuffer.wrap(checkMsg.getBytes(StandardCharsets.UTF_8)));
-
-                // Step 2: Wait for consumer response
-                ByteBuffer responseBuffer = ByteBuffer.allocate(32);
-                int bytesRead = socketChannel.read(responseBuffer);
-                if (bytesRead <= 0) {
-                    System.err.println("No response from consumer for queuecheck. Retrying...");
-                    Thread.sleep(1000);
-                    continue;
-                }
-
-                responseBuffer.flip();
-                String response = StandardCharsets.UTF_8.decode(responseBuffer).toString().trim();
-
-                if ("full".equalsIgnoreCase(response)) {
-                    System.out.println("Queue is full. Will retry uploading: " + videoFile.getName());
-                    Thread.sleep(2000); // Wait before retrying
-                    continue;
-                }
-
-                // Step 3: Send the file header
-                String header = "fileput:" + videoFile.getName() + "\n";
-                ByteBuffer filenameBuffer = ByteBuffer.wrap(header.getBytes(StandardCharsets.UTF_8));
-                while (filenameBuffer.hasRemaining()) {
-                    socketChannel.write(filenameBuffer);
-                }
-
-                // Step 4: Send file data using transferTo
-                long position = 0;
-                long fileSize = fileChannel.size();
-                while (position < fileSize) {
-                    long bytesTransferred = fileChannel.transferTo(position, fileSize - position, socketChannel);
-                    if (bytesTransferred == 0) break; // Avoid infinite loop
-                    position += bytesTransferred;
-                }
-
-                System.out.println("Uploaded: " + videoFile.getName());
-                uploaded = true;
-
-            } catch (IOException | InterruptedException e) {
-                System.err.println("Error uploading " + videoFile.getName() + ": " + e.getMessage());
-                try {
-                    Thread.sleep(2000); // Retry after delay
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                }
+        try (
+                SocketChannel socketChannel = SocketChannel.open(
+                        new InetSocketAddress(ProducerConfig.get("server.ip_addr"), port));
+                FileChannel fileChannel = FileChannel.open(videoFile.toPath(), StandardOpenOption.READ)
+        ) {
+            // Send the filename first
+            String header = "fileput:" + videoFile.getName() + "\n";
+            ByteBuffer filenameBuffer = ByteBuffer.wrap(header.getBytes(StandardCharsets.UTF_8));
+            while (filenameBuffer.hasRemaining()) {
+                socketChannel.write(filenameBuffer);
             }
+
+            // Use transferTo for efficient file transfer
+            long position = 0;
+            long fileSize = fileChannel.size();
+            while (position < fileSize) {
+                long bytesTransferred = fileChannel.transferTo(position, fileSize - position, socketChannel);
+                if (bytesTransferred == 0) {
+                    // Prevent infinite loop if no progress is made
+                    break;
+                }
+                position += bytesTransferred;
+            }
+
+            System.out.println("Uploaded: " + videoFile.getName());
+        } catch (IOException e) {
+            System.err.println("Error while uploading: " + videoFile.getName());
+            e.printStackTrace();
         }
     }
 }
