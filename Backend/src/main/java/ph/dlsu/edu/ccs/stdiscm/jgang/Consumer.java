@@ -93,7 +93,15 @@ public class Consumer {
                         clientChannel.configureBlocking(false);
 
                         // Submit to thread pool
-                        executorService.submit(() -> handleInbound(clientChannel));
+                        executorService.submit(() -> {
+                            if (VideoQueue.isFull()) {
+                                System.err.println("Queue is full, rejecting connection from " + clientChannel);
+
+                            } else {
+                                System.out.println("Accepted connection from " + clientChannel);
+                                handleInbound(clientChannel);
+                            }
+                        });
                     }
                 }
 

@@ -19,4 +19,8 @@ public class VideoQueue {
     public static File getVideo() throws InterruptedException {
         return queue.take(); // Blocks if empty
     }
+
+    public static synchronized boolean isFull() {
+        return queue.remainingCapacity() == 0;
+    }
 }
