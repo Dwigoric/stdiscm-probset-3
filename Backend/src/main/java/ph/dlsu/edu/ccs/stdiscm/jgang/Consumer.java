@@ -46,21 +46,20 @@ public class Consumer {
         File folder = new File(ConsumerConfig.get("video_directory"));
         if (!folder.exists()) folder.mkdirs();
 
-        // Start background thread to drain the leaky bucket queue
-        Runnable queueProcessor = () -> {
-            while (true) {
+        // Start a processor thread to handle videos from the queue
+        processorThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    File video = VideoQueue.getVideo(); // blocks if empty
-                    executorService.submit(() -> {
-                        saveVideo(video);
-                    });
+                    File video = VideoQueue.getVideo(); // blocks until a video is available
+                    saveVideo(video);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    break;
+                } catch (Exception e) {
+                    System.err.println("Error processing video: " + e.getMessage());
                 }
             }
-        };
-        processorThread = new Thread(queueProcessor);
+        });
+        processorThread.setDaemon(true);
         processorThread.start();
 
         // Start the server to accept incoming connections
@@ -97,6 +96,8 @@ public class Consumer {
                         executorService.submit(() -> handleInbound(clientChannel));
                     }
                 }
+
+
             }
         } catch (IOException e) {
             e.printStackTrace();
