@@ -46,6 +46,23 @@ public class Consumer {
         File folder = new File(ConsumerConfig.get("video_directory"));
         if (!folder.exists()) folder.mkdirs();
 
+        // Start background thread to drain the leaky bucket queue
+        Runnable queueProcessor = () -> {
+            while (true) {
+                try {
+                    File video = VideoQueue.getVideo(); // blocks if empty
+                    executorService.submit(() -> {
+                        saveVideo(video);
+                    });
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        };
+        processorThread = new Thread(queueProcessor);
+        processorThread.start();
+
         // Start the server to accept incoming connections
         try {
             // Create a selector
@@ -77,25 +94,7 @@ public class Consumer {
                         clientChannel.configureBlocking(false);
 
                         // Submit to thread pool
-                        if (VideoQueue.isFull()) {
-                            System.err.println("Queue is full, rejecting connection from " + clientChannel.getRemoteAddress());
-                            clientChannel.close();
-                        } else {
-                            System.out.println("Accepted connection from " + clientChannel.getRemoteAddress());
-                            executorService.submit(() -> {
-                                try {
-                                    handleInbound(clientChannel);
-                                } catch (Exception e) {
-                                    System.err.println("Error handling inbound connection: " + e.getMessage());
-                                }
-
-                                try {
-                                    saveVideo(VideoQueue.getVideo());
-                                } catch (InterruptedException e) {
-                                    System.err.println("Error getting video from queue: " + e.getMessage());
-                                }
-                            });
-                        }
+                        executorService.submit(() -> handleInbound(clientChannel));
                     }
                 }
             }
@@ -151,11 +150,9 @@ public class Consumer {
     }
 
     private static void handleHeader(String header, SocketChannel clientChannel) throws IOException {
-
         if (header.startsWith("fileput:")) {
             // Extract filename from header
             String filename = header.substring(8).trim();
-
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
             // Write the content directly to the file
@@ -182,10 +179,7 @@ public class Consumer {
             // Add file to queue
             if (!VideoQueue.addVideo(videoFile)) {
                 System.err.println("Queue is full, unable to add video: " + filename);
-            } else {
-                System.out.println("Video added to queue: " + filename);
             }
-            //VideoQueue.printQueueContent();
 
             // Send acknowledgment back to the producer
             String ackMessage = "Received: " + filename + "\n";
