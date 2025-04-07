@@ -170,6 +170,13 @@ public class Consumer {
         if (header.startsWith("fileput:")) {
             // Extract filename
             String filename = header.substring(8).trim();
+
+            // Ignore .DS_Store files
+            if (filename.equalsIgnoreCase(".DS_Store")) {
+                System.out.println("Ignored file: .DS_Store");
+                return; // Don't process it
+            }
+
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
             try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(),
@@ -177,13 +184,11 @@ public class Consumer {
 
                 long bytesWritten = 0;
 
-                // Write leftover buffer (data after the header)
                 if (leftoverBuffer != null && leftoverBuffer.hasRemaining()) {
                     fileChannel.write(leftoverBuffer);
                     bytesWritten += leftoverBuffer.remaining();
                 }
 
-                // Continue reading rest of the file from the socket
                 ByteBuffer buffer = ByteBuffer.allocate(8192);
                 int bytesRead;
                 while ((bytesRead = clientChannel.read(buffer)) != -1) {
@@ -212,6 +217,7 @@ public class Consumer {
             System.err.println("Unknown header: " + header);
         }
     }
+
 
 
     private static void saveVideo(File video) {
