@@ -113,7 +113,10 @@ public class GUI extends Application {
             loadVideos(newValue.toLowerCase());
         });
 
-        topBar.getChildren().add(searchField);
+        Button refreshButton = new Button("Refresh");
+        refreshButton.setOnAction(e -> loadVideos(""));
+
+        topBar.getChildren().addAll(searchField, refreshButton);
         return topBar;
     }
 
@@ -136,10 +139,39 @@ public class GUI extends Application {
                 videoGrid.getChildren().clear();
                 for (File file : files) {
                     if (file.isFile() && file.getName().toLowerCase().contains(filter)) {
-                        addVideoCard(file.getName());
+                        if (isFileStable(file)) {
+                            addVideoCard(file.getName());
+                        }
                     }
                 }
             });
+        }
+    }
+
+    private boolean isFileStable(File file) {
+        try {
+            long size1 = file.length();
+            Thread.sleep(500);
+            long size2 = file.length();
+            if (size1 != size2) return false;
+
+            // Try opening the file as a Media object
+            try {
+                Media testMedia = new Media(file.toURI().toString());
+                testMedia.errorProperty().addListener((obs, oldErr, newErr) -> {
+                    if (newErr != null) {
+                        System.err.println("Media error: " + newErr.getMessage());
+                    }
+                });
+            } catch (Exception e) {
+                System.err.println("File " + file.getName() + " is not a valid media yet: " + e.getMessage());
+                return false;
+            }
+
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 

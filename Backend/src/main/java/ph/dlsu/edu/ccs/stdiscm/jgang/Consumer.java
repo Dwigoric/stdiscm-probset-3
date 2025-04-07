@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Consumer is responsible for receiving uploaded videos from producers
@@ -121,8 +122,9 @@ public class Consumer {
             // Set up buffer for the header only
             ByteBuffer headerBuffer = ByteBuffer.allocate(1024);
             boolean headerComplete = false;
-            StringBuilder headerBuilder = new StringBuilder(256);
+            StringBuilder headerBuilder = new StringBuilder();
             String header = null;
+            ByteBuffer leftoverBuffer = null;
 
             // Read until we get the complete header
             while (!headerComplete && clientChannel.isOpen()) {
@@ -130,7 +132,7 @@ public class Consumer {
                 if (bytesRead == -1) break; // Channel closed
 
                 headerBuffer.flip();
-                while (headerBuffer.hasRemaining() && !headerComplete) {
+                while (headerBuffer.hasRemaining()) {
                     char c = (char) headerBuffer.get();
                     if (c == '\n') {
                         header = headerBuilder.toString();
@@ -139,6 +141,13 @@ public class Consumer {
                         headerBuilder.append(c);
                     }
                 }
+                if (headerComplete) {
+                    int remaining = headerBuffer.remaining();
+                    leftoverBuffer = ByteBuffer.allocate(remaining);
+                    leftoverBuffer.put(headerBuffer); // copy remaining bytes
+                    leftoverBuffer.flip(); // prepare for reading
+                }
+
                 headerBuffer.clear();
             }
 
@@ -149,7 +158,7 @@ public class Consumer {
             }
 
             // Handle the header and content
-            handleHeader(header, clientChannel);
+            handleHeader(header, clientChannel, leftoverBuffer);
 
             // Close the client channel
             clientChannel.close();
@@ -158,24 +167,30 @@ public class Consumer {
         }
     }
 
-    private static void handleHeader(String header, SocketChannel clientChannel) throws IOException {
+    private static void handleHeader(String header, SocketChannel clientChannel, ByteBuffer leftoverBuffer) throws IOException {
         if (header.startsWith("fileput:")) {
-            // Extract filename from header
+            // Existing logic to handle file upload
+
             String filename = header.substring(8).trim();
+            if (filename.equalsIgnoreCase(".DS_Store")) {
+                System.out.println("Ignored file: .DS_Store");
+                return; // Don't process it
+            }
+
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
-            // Write the content directly to the file
             try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(),
                     StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
-                ByteBuffer buffer = ByteBuffer.allocate(8192);
                 long bytesWritten = 0;
+                if (leftoverBuffer != null && leftoverBuffer.hasRemaining()) {
+                    fileChannel.write(leftoverBuffer);
+                    bytesWritten += leftoverBuffer.remaining();
+                }
 
-                // Read from socket and write to file until end of stream
-                while (true) {
-                    int bytesRead = clientChannel.read(buffer);
-                    if (bytesRead == -1) break;
-
+                ByteBuffer buffer = ByteBuffer.allocate(8192);
+                int bytesRead;
+                while ((bytesRead = clientChannel.read(buffer)) != -1) {
                     buffer.flip();
                     fileChannel.write(buffer);
                     bytesWritten += bytesRead;
@@ -185,21 +200,38 @@ public class Consumer {
                 System.out.println("Received file: " + filename + " (" + bytesWritten + " bytes)");
             }
 
-            // Add file to queue
+            // Add to queue if there's space
             if (!VideoQueue.addVideo(videoFile)) {
                 System.err.println("Queue is full, unable to add video: " + filename);
             }
 
-            // Send acknowledgment back to the producer
+            // Acknowledge receipt
             String ackMessage = "Received: " + filename + "\n";
             ByteBuffer ackBuffer = ByteBuffer.wrap(ackMessage.getBytes());
             while (ackBuffer.hasRemaining()) {
                 clientChannel.write(ackBuffer);
             }
+
+        } else if (header.equalsIgnoreCase("queuecheck")) {
+            // Respond with queue status
+            String response;
+            if (VideoQueue.isFull()) {
+                response = "full\n";
+            } else {
+                response = "ok\n";
+            }
+            ByteBuffer responseBuffer = ByteBuffer.wrap(response.getBytes(StandardCharsets.UTF_8));
+            while (responseBuffer.hasRemaining()) {
+                clientChannel.write(responseBuffer);
+            }
         } else {
             System.err.println("Unknown header: " + header);
         }
     }
+
+
+
+
     private static void saveVideo(File video) {
         if (video == null || !video.exists()) {
             System.err.println("Invalid video file: " + video);
