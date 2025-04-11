@@ -13,7 +13,7 @@ public class VideoQueue {
     private static final BlockingQueue<VideoFile> queue = new LinkedBlockingQueue<>(Integer.parseInt(ConsumerConfig.get("queue_size")));
 
     public static boolean addVideo(VideoFile video) {
-        return queue.add(video); // Returns false if full
+        return queue.offer(video); // Returns false if full
     }
 
     public static VideoFile getVideo() throws InterruptedException {

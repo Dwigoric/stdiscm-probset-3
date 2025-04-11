@@ -174,6 +174,9 @@ public class Consumer {
             // Extract filename
             String filename = header.substring(8).trim();
 
+            if (filename.endsWith(".DS_Store")) {
+                return;
+            }
             //Problem is here
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
