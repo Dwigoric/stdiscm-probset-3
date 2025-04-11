@@ -50,8 +50,9 @@ public class Consumer {
         processorThread = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    File video = VideoQueue.getVideo(); // blocks until a video is available
-                    saveVideo(video);
+                    VideoFile video = VideoQueue.getVideo();
+                    saveVideo(video.getHeader(), video.getClientChannel(), video.getLeftoverBuffer());// blocks until a video is available
+                    video.close();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (Exception e) {
@@ -146,7 +147,6 @@ public class Consumer {
                     leftoverBuffer.put(headerBuffer); // copy remaining bytes
                     leftoverBuffer.flip(); // prepare for reading
                 }
-
                 headerBuffer.clear();
             }
 
@@ -156,20 +156,25 @@ public class Consumer {
                 return;
             }
 
-            // Handle the header and content
-            handleHeader(header, clientChannel, leftoverBuffer);
+            // Queue the objects here:
+            if (VideoQueue.addVideo(new VideoFile(header, clientChannel, leftoverBuffer))) {
+                System.out.println("Video queued: " + header);
+            } else {
+                System.err.println("Queue is full, unable to add video: " + header);
+                clientChannel.close();
+            }
 
-            // Close the client channel
-            clientChannel.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void handleHeader(String header, SocketChannel clientChannel, ByteBuffer leftoverBuffer) throws IOException {
+    private static void saveVideo(String header, SocketChannel clientChannel, ByteBuffer leftoverBuffer) throws IOException {
         if (header.startsWith("fileput:")) {
             // Extract filename
             String filename = header.substring(8).trim();
+
+            //Problem is here
             File videoFile = new File(ConsumerConfig.get("video_directory"), filename);
 
             try (FileChannel fileChannel = FileChannel.open(videoFile.toPath(),
@@ -196,11 +201,6 @@ public class Consumer {
                 System.out.println("Received file: " + filename + " (" + bytesWritten + " bytes)");
             }
 
-            // Add to queue if there's space
-            if (!VideoQueue.addVideo(videoFile)) {
-                System.err.println("Queue is full, unable to add video: " + filename);
-            }
-
             // Acknowledge receipt
             String ackMessage = "Received: " + filename + "\n";
             ByteBuffer ackBuffer = ByteBuffer.wrap(ackMessage.getBytes());
@@ -213,36 +213,6 @@ public class Consumer {
         }
     }
 
-
-    private static void saveVideo(File video) {
-        if (video == null || !video.exists()) {
-            System.err.println("Invalid video file: " + video);
-            return;
-        }
-
-        // Create the target directory if it doesn't exist
-        File targetDir = new File("../videostorage");
-        if (!targetDir.exists()) {
-            boolean created = targetDir.mkdirs();
-            if (!created) {
-                System.err.println("Failed to create ../videostorage directory.");
-                return;
-            }
-        }
-        File targetFile = new File(targetDir, video.getName());
-
-        // Move the video to the target directory
-        try {
-            java.nio.file.Files.copy(
-                    video.toPath(),
-                    targetFile.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            );
-            System.out.println("Video moved to storage: " + targetFile.getAbsolutePath());
-        } catch (IOException e) {
-            System.err.println("Error saving video to ../videostorage: " + e.getMessage());
-        }
-    }
     private static void shutdownExecutorService() {
         // Interrupt the processor thread if it is running
         if (processorThread != null && processorThread.isAlive()) {
